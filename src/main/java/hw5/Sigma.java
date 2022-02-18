@@ -1,8 +1,10 @@
 package hw5;
 
 import soot.Local;
+import soot.SootMethod;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,7 +46,17 @@ public class Sigma {
      */
     public static L join(L v1, L v2) {
         // TODO: Implement union
-        return L.Top;
+        if (v1 == L.Top || v2 == L.Top) {return L.Top;}
+        else if (v1 == L.P && (v2 == L.Bottom || v2 == L.P)) {return L.P;}
+        else if (v1 == L.P && (v2 == L.N || v2 == L.Z)) {return L.Top;}
+        else if (v2 == L.P && (v1 == L.Bottom || v1 == L.P)) {return L.P;}
+        else if (v2 == L.P && (v1 == L.N || v1 == L.Z)) {return L.Top;}
+        else if (v1 == L.N && (v2 == L.Bottom || v2 == L.N)) {return L.N;}
+        else if (v1 == L.N && v2 == L.Z) {return L.Top;}
+        else if (v2 == L.N && (v1 == L.Bottom || v1 == L.N)) {return L.N;}
+        else if (v2 == L.N && v1 == L.Z) {return L.Top;}
+        else if (v1 == L.Bottom && v2 == L.Bottom) {return L.Bottom;}
+        else {return L.Z;}
     }
 
     public String toString() {
@@ -63,7 +75,9 @@ public class Sigma {
     @Override
     public boolean equals(Object obj) {
         // TODO: Implement me!
-        return true;
+        if (obj == null) {return false;}
+        if (this == obj) {return true;}
+        return (obj instanceof Sigma) && (this.map.equals(((Sigma) obj).map));
     }
 
     @Override

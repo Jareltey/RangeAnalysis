@@ -30,8 +30,9 @@ public class Context {
      */
     public static Context getCtx(SootMethod fn, Context callingCtx, Integer n) {
         // TODO implement me!
-        List<Integer> newStr = new ArrayList<>();
-        return new Context(fn, newStr);
+        List<Integer> str = callingCtx.string;
+        str.add(n);
+        return new Context(fn, str);
     }
 
     public String toString() {
