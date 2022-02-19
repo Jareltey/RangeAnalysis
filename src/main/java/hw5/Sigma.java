@@ -75,12 +75,15 @@ public class Sigma {
     @Override
     public boolean equals(Object obj) {
         // TODO: Implement me!
-        return true;
+        if (obj == null) {return false;}
+        if (this == obj) {return true;}
+        return (obj instanceof Sigma) && (this.toString() == ((Sigma) obj).toString());
     }
 
     @Override
     public int hashCode() {
         // TODO: Implement me!
-        return 0;
+        return this.toString().hashCode();
     }
 }
+

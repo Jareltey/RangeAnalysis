@@ -5,11 +5,15 @@ import common.Utils;
 import soot.Local;
 import soot.Unit;
 import soot.ValueBox;
+import soot.baf.ArrayReadInst;
+import soot.baf.ArrayWriteInst;
+import soot.jimple.IdentityStmt;
 import soot.toolkits.graph.DominatorsFinder;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.MHGDominatorsFinder;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
+import soot.jimple.Stmt;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,8 +69,20 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
         // TODO: Implement this (raise warnings)!
         // TODO: This implementation is incorrect, but it shows how to report a warning
         for (Unit u : this.graph) {
+//            if (u instanceof ArrayReadInst || u instanceof ArrayWriteInst) {
+//                Sigma sigmaBefore = this.getFlowBefore(u); // TODO: Use this info to decide if a warning is appropriate
+//                for (Map.Entry<Local,Sigma.L> entry : sigmaBefore.map.entrySet()) {
+//                    if (entry.getValue() == Sigma.L.N) {
+//                        // Reports an error for a definite negative index
+//                        Utils.reportWarning(u, ErrorMessage.NEGATIVE_INDEX_ERROR);
+//                    } else if (entry.getValue() == Sigma.L.Top || entry.getValue() == Sigma.L.Bottom) {
+//                        // Reports a warning for a possible negative index
+//                        Utils.reportWarning(u, ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING);
+//                    }
+//                }
+//             }
+//            }
             Sigma sigmaBefore = this.getFlowBefore(u); // TODO: Use this info to decide if a warning is appropriate
-
             // Reports an error for a definite negative index
             Utils.reportWarning(u, ErrorMessage.NEGATIVE_INDEX_ERROR);
             // Reports a warning for a possible negative index
@@ -84,6 +100,16 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void flowThrough(Sigma inValue, Unit unit, Sigma outValue) {
         // TODO: Implement the flow function
+        Stmt stmt = (Stmt) unit;
+        if (stmt instanceof IdentityStmt) {
+            IdentityStmt id_stmt = (IdentityStmt) stmt;
+            Local var = (Local) id_stmt.getLeftOp();
+            this.copy(inValue, outValue);
+            outValue.map.put(var, Sigma.L.Bottom);
+        } else if (stmt instanceof )
+
+
+//        Context calleectx = Context.getCtx(ctx.fn ,ctx ,unit.getJavaSourceStartLineNumber());
     }
 
     /**
@@ -95,7 +121,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             return this.sigma_i;
         } else {
             // TODO: Implement me!
-            return new Sigma();
+            return new Sigma(this.locals, Sigma.L.Top);
         }
     }
 
@@ -105,7 +131,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected Sigma newInitialFlow() {
         // TODO: Implement me!
-        return new Sigma();
+        return new Sigma(this.locals, Sigma.L.Bottom);
     }
 
     /**
@@ -114,6 +140,11 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void merge(Sigma in1, Sigma in2, Sigma out) {
         // TODO: Implement me!
+        for (Map.Entry<Local,Sigma.L> entry : in1.map.entrySet()) {
+            Sigma.L val1 = entry.getValue();
+            Sigma.L val2 = in2.map.get(entry.getKey());
+            out.map.put(entry.getKey(), Sigma.join(val1, val2));
+        }
     }
 
     /**
@@ -122,5 +153,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void copy(Sigma source, Sigma dest) {
         // TODO: Implement me!
+        for (Map.Entry<Local,Sigma.L> entry : source.map.entrySet()) {
+            dest.map.put(entry.getKey(), entry.getValue());
+        }
     }
 }
