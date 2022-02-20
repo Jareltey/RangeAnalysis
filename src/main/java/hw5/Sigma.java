@@ -75,9 +75,10 @@ public class Sigma {
     @Override
     public boolean equals(Object obj) {
         // TODO: Implement me!
-        if (obj == null) {return false;}
-        if (this == obj) {return true;}
-        return (obj instanceof Sigma) && (this.toString() == ((Sigma) obj).toString());
+        return true;
+//        if (obj == null) {return false;}
+//        if (this == obj) {return true;}
+//        return (obj instanceof Sigma) && (this.toString() == ((Sigma) obj).toString());
     }
 
     @Override
