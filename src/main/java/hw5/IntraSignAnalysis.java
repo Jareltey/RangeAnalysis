@@ -116,7 +116,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             Local var_right = null;
             soot.Value expr = assign_stmt.getRightOp();
 //            System.out.println(expr.getClass().getSimpleName());
-//            if (expr instanceof NumericConstant) {
             if (expr instanceof IntConstant) {
                 Integer i = Integer.parseInt(expr.toString());
                 if (i == 0) {
@@ -272,8 +271,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     ;
                 }
             }
-            System.out.println(target_stmt.toString());
-            System.out.println(cond.toString());
+//            System.out.println(target_stmt.toString());
+//            System.out.println(cond.toString());
         } else if (stmt instanceof GotoStmt) {
             ;
         }

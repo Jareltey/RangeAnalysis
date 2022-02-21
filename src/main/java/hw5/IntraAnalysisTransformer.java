@@ -36,7 +36,7 @@ public class IntraAnalysisTransformer extends BodyTransformer {
                     stmt.getJavaSourceStartLineNumber(),
                     stmt.toString(),
                     analysis.getFlowAfter(stmt));
-            System.out.println("Values copied!");
+            System.out.println("Values copied!"); //check to see if values are copied
         }
     }
 }
