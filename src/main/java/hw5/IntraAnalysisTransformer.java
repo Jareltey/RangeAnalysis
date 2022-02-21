@@ -30,13 +30,13 @@ public class IntraAnalysisTransformer extends BodyTransformer {
         // You can view this output by running `gradle test --info`
         for (Unit unit: body.getUnits()) {
             Stmt stmt = (Stmt) unit;
+            System.out.println("Values copied!"); //check to see if values are copied
             System.out.printf("--------------\nBefore: %s\n\t(%s at Line %d)\n\t%s\nAfter: %s\n--------------\n\n",
                     analysis.getFlowBefore(stmt),
                     stmt.getClass().getSimpleName(),
                     stmt.getJavaSourceStartLineNumber(),
                     stmt.toString(),
                     analysis.getFlowAfter(stmt));
-            System.out.println("Values copied!"); //check to see if values are copied
         }
     }
 }
