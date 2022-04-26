@@ -1,6 +1,19 @@
 package inputs;
 
 public class IntraTest {
+
+    public static void test0() {
+        double x = 0;
+        double y = 4;
+        double ignore;
+        double[] array = new double[2];
+        while (x != y) {
+            ignore = array[x];
+            x += 1;
+        }
+        y = 0;
+    }
+
     public static void test1() {
         int x, y, z, w;
         int[] array = new int[5];

@@ -2,6 +2,7 @@ package hw5;
 
 import common.ErrorMessage;
 import common.Utils;
+import jdk.internal.net.http.common.Pair;
 import soot.Local;
 import soot.Unit;
 import soot.ValueBox;
@@ -14,6 +15,7 @@ import soot.toolkits.graph.MHGDominatorsFinder;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
+import java.awt.geom.Arc2D;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -108,6 +110,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void flowThrough(Sigma inValue, Unit unit, Sigma outValue) {
         // TODO: Implement the flow function
+        Pair<Double,Double> bottom = new Pair<>(Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY);
         this.copy(inValue, outValue);
         Stmt stmt = (Stmt) unit;
         if (stmt instanceof AssignStmt) {
@@ -115,146 +118,75 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             Local var = (Local) assign_stmt.getLeftOp();
             Local var_right = null;
             soot.Value expr = assign_stmt.getRightOp();
-//            System.out.println(expr.getClass().getSimpleName());
-            if (expr instanceof IntConstant) {
-                Integer i = Integer.parseInt(expr.toString());
-                if (i == 0) {
-                    outValue.map.put(var, Sigma.L.Z);
-                } else if (i > 0) {
-                    outValue.map.put(var, Sigma.L.P);
-                } else {
-                    outValue.map.put(var, Sigma.L.N);
-                }
+            if (expr instanceof DoubleConstant) {
+                Double d = ((DoubleConstant) expr).value;
+                outValue.map.put(var, new Pair<>(d,d));
+
             } else if (expr instanceof BinopExpr) {
                 soot.Value op1 = ((BinopExpr) expr).getOp1();
-                Sigma.L var1_abstract = Sigma.L.Top;
-                if (op1 instanceof IntConstant) {
-                    IntConstant op1_const = (IntConstant) op1;
-                    Integer op1_val = op1_const.value;
-                    if (op1_val == 0) {
-                        var1_abstract = Sigma.L.Z;
-                    } else if (op1_val > 0) {
-                        var1_abstract = Sigma.L.P;
-                    } else {
-                        var1_abstract = Sigma.L.N;
-                    }
+                Pair<Double,Double> var1_abstract = null;
+                if (op1 instanceof DoubleConstant) {
+                    DoubleConstant op1_const = (DoubleConstant) op1;
+                    Double op1_val = op1_const.value;
+                    var1_abstract = new Pair<>(op1_val,op1_val);
                 } else if (op1 instanceof Local) {
                     Local var1 = (Local) op1;
                     var1_abstract = inValue.map.get(var1);
                 }
-                Sigma.L var2_abstract = Sigma.L.Top;
+                Pair<Double,Double> var2_abstract = null;
                 soot.Value op2 = ((BinopExpr) expr).getOp2();
-                if (op2 instanceof IntConstant) {
-                    IntConstant op2_const = (IntConstant) op2;
-                    Integer op2_val = op2_const.value;
-                    if (op2_val == 0) {
-                        var2_abstract = Sigma.L.Z;
-                    } else if (op2_val > 0) {
-                        var2_abstract = Sigma.L.P;
-                    } else {
-                        var2_abstract = Sigma.L.N;
-                    }
+                if (op2 instanceof DoubleConstant) {
+                    DoubleConstant op2_const = (DoubleConstant) op2;
+                    Double op2_val = op2_const.value;
+                    var2_abstract = new Pair<>(op2_val,op2_val);
                 } else if (op2 instanceof Local) {
                     Local var2 = (Local) op2;
                     var2_abstract = inValue.map.get(var2);
                 }
 
                 if (expr instanceof AddExpr) {
-                    if (var1_abstract == Sigma.L.Bottom || var2_abstract == Sigma.L.Bottom) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.Top || var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Z);
+                    if (var1_abstract == bottom || var2_abstract == bottom) {
+                        ;
+                    } else {
+                        Double low = var1_abstract.first + var2_abstract.first;
+                        Double high = var1_abstract.second + var2_abstract.second;
+                        outValue.map.put(var, new Pair<>(low,high));
                     }
                 } else if (expr instanceof SubExpr) {
-                    if (var1_abstract == Sigma.L.Bottom || var2_abstract == Sigma.L.Bottom) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.Top || var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Z);
+                    if (var1_abstract == bottom || var2_abstract == bottom) {
+                        ;
+                    } else {
+                        Double low = var1_abstract.first - var2_abstract.second;
+                        Double high = var1_abstract.second - var2_abstract.first;
+                        outValue.map.put(var, new Pair<>(low,high));
                     }
                 } else if (expr instanceof MulExpr) {
-                    if (var1_abstract == Sigma.L.Bottom || var2_abstract == Sigma.L.Bottom) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Z);
-                    } else if (var1_abstract == Sigma.L.Top && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Z);
-                    } else if (var1_abstract == Sigma.L.Top || var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Z);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Z);
-                    } else {
-                        outValue.map.put(var, Sigma.L.Z);
-                    }
+                    Double candidate_1 = var1_abstract.first * var2_abstract.first;
+                    Double candidate_2 = var1_abstract.first * var2_abstract.second;
+                    Double candidate_3 = var1_abstract.second * var2_abstract.first;
+                    Double candidate_4 = var1_abstract.second * var2_abstract.second;
+                    Double low = Math.min(Math.min(Math.min(candidate_1,candidate_2),candidate_3),candidate_4);
+                    Double high = Math.max(Math.max(Math.max(candidate_1,candidate_2),candidate_3),candidate_4);
+                    outValue.map.put(var, new Pair<>(low,high));
                 } else if (expr instanceof DivExpr) {
-                    if (var1_abstract == Sigma.L.Bottom || var2_abstract == Sigma.L.Bottom) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Z);
-                    } else if (var1_abstract == Sigma.L.Top && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.Top || var2_abstract == Sigma.L.Top) {
-                        outValue.map.put(var, Sigma.L.Top);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.P && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Bottom);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.P) {
-                        outValue.map.put(var, Sigma.L.N);
-                    } else if (var1_abstract == Sigma.L.N && var2_abstract == Sigma.L.N) {
-                        outValue.map.put(var, Sigma.L.P);
-                    } else if (var1_abstract == Sigma.L.Z && var2_abstract == Sigma.L.Z) {
-                        outValue.map.put(var, Sigma.L.Bottom);
+                    Pair<Double,Double> reciprocal_abs;
+                    if (var2_abstract.first > 0 || var2_abstract.second < 0) {
+                        reciprocal_abs = new Pair<>(1/var2_abstract.second, 1/var2_abstract.first);
+                    } else if (var2_abstract.first == 0) {
+                        reciprocal_abs = new Pair<>(1/var2_abstract.second, Double.POSITIVE_INFINITY);
+                    } else if (var2_abstract.second == 0) {
+                        reciprocal_abs = new Pair<>(Double.NEGATIVE_INFINITY, 1/ var2_abstract.first);
                     } else {
-                        outValue.map.put(var, Sigma.L.Z);
+                        // Being conservative by assigning lattice value T, could retain more information by taking
+                        // union of 2 disjoint intervals
+                        reciprocal_abs = new Pair<>(Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY);;
                     }
                 } else {
                     ;
                 }
             } else if (expr instanceof Local) {
                 var_right = (Local) expr;
-                Sigma.L abs = inValue.map.get(var_right);
+                Pair<Double,Double> abs = inValue.map.get(var_right);
                 outValue.map.put(var, abs);
             }
         } else if (stmt instanceof IfStmt) {
@@ -271,14 +203,10 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     ;
                 }
             }
-//            System.out.println(target_stmt.toString());
-//            System.out.println(cond.toString());
         } else if (stmt instanceof GotoStmt) {
             ;
         }
     }
-
-//        Context calleectx = Context.getCtx(ctx.fn ,ctx ,unit.getJavaSourceStartLineNumber());
 
 
     /**
@@ -290,7 +218,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             return this.sigma_i;
         } else {
             // TODO: Implement me!
-            return new Sigma(this.locals, Sigma.L.Top);
+            Pair<Double,Double> initialVal = new Pair<>(Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY);
+            return new Sigma(this.locals, initialVal);
         }
     }
 
@@ -300,7 +229,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected Sigma newInitialFlow() {
         // TODO: Implement me!
-        return new Sigma(this.locals, Sigma.L.Bottom);
+        Pair<Double,Double> initialVal = new Pair<>(Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY);
+        return new Sigma(this.locals, initialVal);
     }
 
     /**
@@ -309,9 +239,9 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void merge(Sigma in1, Sigma in2, Sigma out) {
 //      TODO: Implement me!
-        for (Map.Entry<Local,Sigma.L> entry : in1.map.entrySet()) {
-            Sigma.L val1 = entry.getValue();
-            Sigma.L val2 = in2.map.get(entry.getKey());
+        for (Map.Entry<Local,Pair<Double,Double>> entry : in1.map.entrySet()) {
+            Pair<Double,Double> val1 = entry.getValue();
+            Pair<Double,Double> val2 = in2.map.get(entry.getKey());
             out.map.put(entry.getKey(), Sigma.join(val1, val2));
         }
     }
@@ -322,7 +252,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     @Override
     protected void copy(Sigma source, Sigma dest) {
         // TODO: Implement me!
-        for (Map.Entry<Local,Sigma.L> entry : source.map.entrySet()) {
+        for (Map.Entry<Local,Pair<Double,Double>> entry : source.map.entrySet()) {
             dest.map.put(entry.getKey(), entry.getValue());
         }
     }
