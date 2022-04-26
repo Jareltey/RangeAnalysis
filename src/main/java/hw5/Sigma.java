@@ -15,10 +15,6 @@ public class Sigma {
      * Elements of lattice are Pair<Double,Double>
      */
 
-//    enum L {
-//        Top, Bottom, N, P, Z
-//    }
-
     // Maps locals to abstract values
     public Map<Local, Pair<Double,Double>> map;
 
@@ -48,7 +44,7 @@ public class Sigma {
         // TODO: Implement union
         Double min = Math.min(v1.first, v2.first);
         Double max = Math.max(v1.second, v2.second);
-        Pair<Double,Double> res = new Pair<Double,Double>(min,max);
+        Pair<Double,Double> res = new Pair<>(min,max);
         return res;
     }
 

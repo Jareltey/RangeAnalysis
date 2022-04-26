@@ -3,15 +3,15 @@ package inputs;
 public class IntraTest {
 
     public static void test0() {
-        double x = 0;
-        double y = 4;
-        double ignore;
-        double[] array = new double[2];
+        Double x = 0.0;
+        Double y = 4.0;
+        int ignore;
+        int[] array = new int[2];
         while (x != y) {
-            ignore = array[x];
+            ignore = array[(int)(x.doubleValue())];
             x += 1;
         }
-        y = 0;
+        y = 0.0;
     }
 
     public static void test1() {
