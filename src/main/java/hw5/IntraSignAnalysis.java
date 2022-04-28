@@ -2,7 +2,6 @@ package hw5;
 
 import common.ErrorMessage;
 import common.Utils;
-import jdk.internal.net.http.common.Pair;
 import soot.Local;
 import soot.Unit;
 import soot.ValueBox;
@@ -14,6 +13,7 @@ import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.MHGDominatorsFinder;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
+import soot.toolkits.scalar.Pair;
 
 import java.awt.geom.Arc2D;
 import java.util.HashMap;
@@ -71,7 +71,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
         for (Unit u : this.graph) {
             Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
             Pair<Double, Double> top = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-            Sigma sigmaBefore = this.getFlowBefore(u); // TODO: Use this info to decide if a warning is appropriate
+            Sigma sigmaBefore = this.getFlowBefore(u);
             Local ind = null;
             Stmt stmt = (Stmt) u;
             if (stmt instanceof AssignStmt) {
@@ -81,7 +81,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                 if (expr instanceof ArrayRef) {
                     ArrayRef arr_expr = (ArrayRef) expr;
                     soot.Value index = arr_expr.getIndex();
-
                     if (index instanceof IntConstant) {
                         Integer i = ((IntConstant) index).value;
                         if (i < 0) {
@@ -89,12 +88,18 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                         }
                     } else if (index instanceof Local) {
                         ind = (Local) index;
-                        Pair<Double,Double> range = sigmaBefore.map.get(ind);
-                        Double low = range.first;
-                        Double high = range.second;
-                        if (low == Double.NEGATIVE_INFINITY && high == Double.POSITIVE_INFINITY) {
+                        Pair<Double, Double> range = sigmaBefore.map.get(ind);
+                        Double low = range.getO1();
+                        Double high = range.getO2();
+                        if (high < 0.0) { // or low > array_length
+                            Utils.reportWarning(u, ErrorMessage.NEGATIVE_INDEX_ERROR);
+                        } else if (low < 0.0 || high == Double.POSITIVE_INFINITY) {
                             Utils.reportWarning(u, ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING);
-                        } 
+                        } // if low >= 0.0 && low <= array_length && high > array_length (warning)
+                          else { // low >= 0.0 && low <= array_length && high <= array_length
+                              ;
+                        }
+
                     }
                 }
             }
@@ -114,6 +119,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
         Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
         this.copy(inValue, outValue);
         Stmt stmt = (Stmt) unit;
+//        System.out.println(stmt.toString());
+//        System.out.println(stmt.getClass().getSimpleName());
         if (stmt instanceof AssignStmt) {
             AssignStmt assign_stmt = (AssignStmt) stmt;
             Local var = (Local) assign_stmt.getLeftOp();
@@ -122,7 +129,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             if (expr instanceof DoubleConstant) {
                 Double d = ((DoubleConstant) expr).value;
                 outValue.map.put(var, new Pair<>(d, d));
-
             } else if (expr instanceof BinopExpr) {
                 soot.Value op1 = ((BinopExpr) expr).getOp1();
                 Pair<Double, Double> var1_abstract = null;
@@ -149,44 +155,44 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     if (var1_abstract == bottom || var2_abstract == bottom) {
                         ;
                     } else {
-                        Double low = var1_abstract.first + var2_abstract.first;
-                        Double high = var1_abstract.second + var2_abstract.second;
+                        Double low = var1_abstract.getO1() + var2_abstract.getO1();
+                        Double high = var1_abstract.getO2() + var2_abstract.getO2();
                         outValue.map.put(var, new Pair<>(low, high));
                     }
                 } else if (expr instanceof SubExpr) {
                     if (var1_abstract == bottom || var2_abstract == bottom) {
                         ;
                     } else {
-                        Double low = var1_abstract.first - var2_abstract.second;
-                        Double high = var1_abstract.second - var2_abstract.first;
+                        Double low = var1_abstract.getO1() - var2_abstract.getO2();
+                        Double high = var1_abstract.getO2() - var2_abstract.getO1();
                         outValue.map.put(var, new Pair<>(low, high));
                     }
                 } else if (expr instanceof MulExpr) {
-                    Double candidate_1 = var1_abstract.first * var2_abstract.first;
-                    Double candidate_2 = var1_abstract.first * var2_abstract.second;
-                    Double candidate_3 = var1_abstract.second * var2_abstract.first;
-                    Double candidate_4 = var1_abstract.second * var2_abstract.second;
+                    Double candidate_1 = var1_abstract.getO1() * var2_abstract.getO1();
+                    Double candidate_2 = var1_abstract.getO1() * var2_abstract.getO2();
+                    Double candidate_3 = var1_abstract.getO2() * var2_abstract.getO1();
+                    Double candidate_4 = var1_abstract.getO2() * var2_abstract.getO2();
                     Double low = Math.min(Math.min(Math.min(candidate_1, candidate_2), candidate_3), candidate_4);
                     Double high = Math.max(Math.max(Math.max(candidate_1, candidate_2), candidate_3), candidate_4);
                     outValue.map.put(var, new Pair<>(low, high));
                 } else if (expr instanceof DivExpr) {
                     Pair<Double, Double> reciprocal_abstract;
-                    if (var2_abstract.first > 0 || var2_abstract.second < 0) {
-                        reciprocal_abstract = new Pair<>(1 / var2_abstract.second, 1 / var2_abstract.first);
-                    } else if (var2_abstract.first == 0) {
-                        reciprocal_abstract = new Pair<>(1 / var2_abstract.second, Double.POSITIVE_INFINITY);
-                    } else if (var2_abstract.second == 0) {
-                        reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, 1 / var2_abstract.first);
-                    } else {
+                    if (var2_abstract.getO1() > 0 || var2_abstract.getO2() < 0) { // 0 not in range of second operand
+                        reciprocal_abstract = new Pair<>(1 / var2_abstract.getO2(), 1 / var2_abstract.getO1());
+                    } else if (var2_abstract.getO1() == 0) { // 0 is lower bound of second operand
+                        reciprocal_abstract = new Pair<>(1 / var2_abstract.getO2(), Double.POSITIVE_INFINITY);
+                    } else if (var2_abstract.getO2() == 0) { // 0 is upper bound of second operand
+                        reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, 1 / var2_abstract.getO1());
+                    } else { // 0 in middle of range of second operand
                         // Being conservative by assigning lattice value T, could alternatively retain more information
                         // by taking union of 2 disjoint intervals
                         reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
                         ;
                     }
-                    Double candidate_1 = var1_abstract.first * reciprocal_abstract.first;
-                    Double candidate_2 = var1_abstract.first * reciprocal_abstract.second;
-                    Double candidate_3 = var1_abstract.second * reciprocal_abstract.first;
-                    Double candidate_4 = var1_abstract.second * reciprocal_abstract.second;
+                    Double candidate_1 = var1_abstract.getO1() * reciprocal_abstract.getO1();
+                    Double candidate_2 = var1_abstract.getO1() * reciprocal_abstract.getO2();
+                    Double candidate_3 = var1_abstract.getO2() * reciprocal_abstract.getO1();
+                    Double candidate_4 = var1_abstract.getO2() * reciprocal_abstract.getO2();
                     Double low = Math.min(Math.min(Math.min(candidate_1, candidate_2), candidate_3), candidate_4);
                     Double high = Math.max(Math.max(Math.max(candidate_1, candidate_2), candidate_3), candidate_4);
                     outValue.map.put(var, new Pair<>(low, high));
@@ -198,8 +204,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                 Pair<Double, Double> abs = inValue.map.get(var_right);
                 outValue.map.put(var, abs);
             }
-        } else if (stmt instanceof IfStmt) { // Don't update sigma_out for IfStmt
-            ;
+        } else if (stmt instanceof IfStmt) {
+            // apply widening operator
         } else if (stmt instanceof GotoStmt) { // Don't update sigma_out for GotoStmt
             ;
         } else {

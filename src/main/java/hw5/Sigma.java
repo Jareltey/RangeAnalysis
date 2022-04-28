@@ -1,8 +1,9 @@
 package hw5;
 
-import jdk.internal.net.http.common.Pair;
 import soot.Local;
 import soot.SootMethod;
+import soot.toolkits.scalar.Pair;
+
 import java.lang.*;
 import java.util.HashMap;
 import java.util.*;
@@ -42,8 +43,8 @@ public class Sigma {
      */
     public static Pair<Double,Double> join(Pair<Double,Double> v1, Pair<Double,Double> v2) {
         // TODO: Implement union
-        Double min = Math.min(v1.first, v2.first);
-        Double max = Math.max(v1.second, v2.second);
+        Double min = Math.min(v1.getO1(), v2.getO1());
+        Double max = Math.max(v1.getO2(), v2.getO2());
         Pair<Double,Double> res = new Pair<>(min,max);
         return res;
     }
