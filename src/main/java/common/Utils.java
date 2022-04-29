@@ -42,14 +42,15 @@ public class Utils {
             System.out.println(line);
         }
         // An error overrides a warning.
-        if (message == ErrorMessage.NEGATIVE_INDEX_ERROR) {
+        if (message == ErrorMessage.NEGATIVE_INDEX_ERROR || message == ErrorMessage.EXCEED_ARRAY_LENGTH_ERROR) {
             ErrorReport warning = new ErrorReport(ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING, line, name);
             errors.remove(warning);
             errors.add(new ErrorReport(message, line, name));
         }
         if (message == ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING) {
             ErrorReport error = new ErrorReport(ErrorMessage.NEGATIVE_INDEX_ERROR, line, name);
-            if (!errors.contains(error))
+            ErrorReport error2 = new ErrorReport(ErrorMessage.EXCEED_ARRAY_LENGTH_ERROR, line, name);
+            if (!errors.contains(error) && !errors.contains(error2))
                 errors.add(new ErrorReport(message, line, name));
         }
 
