@@ -42,7 +42,6 @@ public class Sigma {
      * Join for two abstract values
      */
     public static Pair<Double,Double> join(Pair<Double,Double> v1, Pair<Double,Double> v2) {
-        // TODO: Implement union
         Double min = Math.min(v1.getO1(), v2.getO1());
         Double max = Math.max(v1.getO2(), v2.getO2());
         Pair<Double,Double> res = new Pair<>(min,max);
@@ -64,7 +63,6 @@ public class Sigma {
 
     @Override
     public boolean equals(Object obj) {
-        // TODO: Implement me!
         if (obj == null) {return false;}
         if (this == obj) {return true;}
         return (obj instanceof Sigma) && (this.map.equals(((Sigma) obj).map));
@@ -72,7 +70,6 @@ public class Sigma {
 
     @Override
     public int hashCode() {
-        // TODO: Implement me!
         return this.toString().hashCode();
     }
 }

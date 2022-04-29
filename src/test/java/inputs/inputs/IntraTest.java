@@ -8,17 +8,21 @@ public class IntraTest {
     // variables are present.
 
     public static void test0() {
-        double a,b,c,d;
+        double a,b,c;
         int ignore;
         int[] array = new int[5];
-        a = 1.0;
-        b = 2.0;
-        c = a + b;
-        while (a != b) {
-            ;
-//            ignore = array[(int)c];
-//            c = c + a;
+        a = 2.0; // a -> [2.0,2.0]
+        b = 2.0; // b -> [2.0,2.0]
+        c = a - b; // c -> [0.0,0.0]
+        ignore = array[(int)c]; // OK
+        while (c != b) {
+            c += 1.0; // 1st iteration: c -> [1.0,1.0]
+                      // 2nd iteration: c -> [1.0,+∞]
+            ignore = array[(int)c]; // 1st iteration: OK
+                                    // 2nd iteration: WARNING
         }
+                                // c -> [0.0,+∞]
+        ignore = array[(int)c]; // WARNING
     }
 
 //    public static void test1() {

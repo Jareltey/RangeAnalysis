@@ -32,6 +32,9 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     // The input sigma for this analysis
     private Sigma sigma_i;
 
+    // Mapping from program points to most recent Sigma_in
+    public Map<Integer,Sigma> program_map = new HashMap<>();
+
     /**
      * Constructor with no context. This is useful for testing the intraprocedural
      * analysis on its own.
@@ -115,12 +118,9 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      */
     @Override
     protected void flowThrough(Sigma inValue, Unit unit, Sigma outValue) {
-        // TODO: Implement the flow function
         Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
         this.copy(inValue, outValue);
         Stmt stmt = (Stmt) unit;
-//        System.out.println(stmt.toString());
-//        System.out.println(stmt.getClass().getSimpleName());
         if (stmt instanceof AssignStmt) {
             AssignStmt assign_stmt = (AssignStmt) stmt;
             Local var = (Local) assign_stmt.getLeftOp();
@@ -184,10 +184,9 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     } else if (var2_abstract.getO2() == 0) { // 0 is upper bound of second operand
                         reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, 1 / var2_abstract.getO1());
                     } else { // 0 in middle of range of second operand
-                        // Being conservative by assigning lattice value T, could alternatively retain more information
+                        // being conservative by assigning lattice value T, could alternatively retain more information
                         // by taking union of 2 disjoint intervals
                         reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
-                        ;
                     }
                     Double candidate_1 = var1_abstract.getO1() * reciprocal_abstract.getO1();
                     Double candidate_2 = var1_abstract.getO1() * reciprocal_abstract.getO2();
@@ -196,22 +195,69 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     Double low = Math.min(Math.min(Math.min(candidate_1, candidate_2), candidate_3), candidate_4);
                     Double high = Math.max(Math.max(Math.max(candidate_1, candidate_2), candidate_3), candidate_4);
                     outValue.map.put(var, new Pair<>(low, high));
-                } else {
-                    ;
                 }
             } else if (expr instanceof Local) {
                 var_right = (Local) expr;
                 Pair<Double, Double> abs = inValue.map.get(var_right);
                 outValue.map.put(var, abs);
             }
-        } else if (stmt instanceof IfStmt) {
-            // apply widening operator
-        } else if (stmt instanceof GotoStmt) { // Don't update sigma_out for GotoStmt
+        } else if (stmt instanceof IfStmt) { // apply widening operator at head of loop
+            Sigma prev = this.program_map.get(stmt.getJavaSourceStartLineNumber());
+            if (prev == null) { // reaching head of loop for first time, initialize all variables as bottom
+                prev = new Sigma(this.locals, new Pair<>(Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY));
+            }
+            Sigma curr = inValue;
+            Sigma res = wideningOperator(prev, curr);
+            this.copy(res, outValue);
+            inValue = res;
+        } else if (stmt instanceof GotoStmt) { // don't update sigma_out for GotoStmt
             ;
         } else {
             ;
         }
+        if (stmt instanceof IfStmt) { // store sigma after applying widening operator as most recent sigma_in for that line
+            this.program_map.put(stmt.getJavaSourceStartLineNumber(), inValue);
+        }
+        // System.out.printf("Set %d to %s with %s\n", stmt.getJavaSourceStartLineNumber(), inValue.toString(), stmt.getClass().getSimpleName());
     }
+
+    /**
+     * Widening operator to make the analysis terminate by making the height of the lattice finite
+     *
+     * @param prev  The previous Sigma_in at a particular line in the program
+     * @param curr  The current Sigma_in at the same line in the program
+     */
+    public Sigma wideningOperator(Sigma prev, Sigma curr) {
+        Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
+        Sigma res = new Sigma();
+        for (Map.Entry<Local,Pair<Double,Double>> entry: prev.map.entrySet()) {
+            Local var = entry.getKey();
+            Pair<Double,Double> prev_range = entry.getValue();
+            Pair<Double,Double> curr_range = curr.map.get(var);
+            if (prev_range.equals(bottom)) {
+                res.map.put(var,curr_range);
+            } else {
+                double prev_low = prev_range.getO1();
+                double prev_high = prev_range.getO2();
+                double curr_low = curr_range.getO1();
+                double curr_high = curr_range.getO2();
+                double new_low, new_high;
+                if (prev_low <= curr_low) {
+                    new_low = prev_low;
+                } else {
+                    new_low = Double.NEGATIVE_INFINITY;
+                }
+                if (prev_high >= curr_high) {
+                    new_high = prev_high;
+                } else {
+                    new_high = Double.POSITIVE_INFINITY;
+                }
+                res.map.put(var,new Pair<>(new_low,new_high));
+            }
+        }
+        return res;
+    }
+
     /**
      * Initial flow information at the start of a method
      */
@@ -220,7 +266,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
         if (this.sigma_i != null) {
             return this.sigma_i;
         } else {
-            // TODO: Implement me!
             Pair<Double,Double> initialVal = new Pair<>(Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY);
             return new Sigma(this.locals, initialVal);
         }
@@ -231,7 +276,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      */
     @Override
     protected Sigma newInitialFlow() {
-        // TODO: Implement me!
         Pair<Double,Double> initialVal = new Pair<>(Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY);
         return new Sigma(this.locals, initialVal);
     }
@@ -241,7 +285,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      */
     @Override
     protected void merge(Sigma in1, Sigma in2, Sigma out) {
-//      TODO: Implement me!
         for (Map.Entry<Local,Pair<Double,Double>> entry : in1.map.entrySet()) {
             Pair<Double,Double> val1 = entry.getValue();
             Pair<Double,Double> val2 = in2.map.get(entry.getKey());
@@ -254,7 +297,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      */
     @Override
     protected void copy(Sigma source, Sigma dest) {
-        // TODO: Implement me!
         for (Map.Entry<Local,Pair<Double,Double>> entry : source.map.entrySet()) {
             dest.map.put(entry.getKey(), entry.getValue());
         }
