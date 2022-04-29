@@ -4,24 +4,18 @@ import common.ErrorMessage;
 import common.Utils;
 import soot.Local;
 import soot.Unit;
-import soot.ValueBox;
-import soot.baf.ArrayReadInst;
-import soot.baf.ArrayWriteInst;
 import soot.jimple.*;
-import soot.toolkits.graph.DominatorsFinder;
 import soot.toolkits.graph.ExceptionalUnitGraph;
-import soot.toolkits.graph.MHGDominatorsFinder;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 import soot.toolkits.scalar.Pair;
 
-import java.awt.geom.Arc2D;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
+public class IntraRangeAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     // Holds the set of local variables
     private Set<Local> locals = new HashSet<>();
 
@@ -42,7 +36,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      * Constructor with no context. This is useful for testing the intraprocedural
      * analysis on its own.
      */
-    IntraSignAnalysis(UnitGraph graph) {
+    IntraRangeAnalysis(UnitGraph graph) {
         // Note the construction of a default Sigma
         this(graph, null, null);
     }
@@ -51,11 +45,11 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      * Allows creating an intra analysis with just the context and the input sigma,
      * since the unit graph can be grabbed from the function in the context.
      */
-    IntraSignAnalysis(Context ctx, Sigma sigma_i) {
+    IntraRangeAnalysis(Context ctx, Sigma sigma_i) {
         this(new ExceptionalUnitGraph(ctx.fn.getActiveBody()), ctx, sigma_i);
     }
 
-    IntraSignAnalysis(UnitGraph graph, Context ctx, Sigma sigma_i) {
+    IntraRangeAnalysis(UnitGraph graph, Context ctx, Sigma sigma_i) {
         super(graph);
         this.ctx = ctx;
         this.sigma_i = sigma_i;
@@ -74,8 +68,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      */
     public void reportWarnings() {
         for (Unit u : this.graph) {
-            Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
-            Pair<Double, Double> top = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
             Sigma sigmaBefore = this.getFlowBefore(u);
             Stmt stmt = (Stmt) u;
             if (stmt instanceof AssignStmt) {
@@ -184,6 +176,7 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                         outValue.map.put(var, new Pair<>(low, high));
                     }
                 } else if (expr instanceof MulExpr) {
+                    // if ranges are [x1,x2], [y1,y2] we want [min(x1y1,x1y2,x2y1,x2y2),max(x1y1,x1y2,x2y1,x2y2)] as result
                     Double candidate_1 = var1_abstract.getO1() * var2_abstract.getO1();
                     Double candidate_2 = var1_abstract.getO1() * var2_abstract.getO2();
                     Double candidate_3 = var1_abstract.getO2() * var2_abstract.getO1();
@@ -200,8 +193,8 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                     } else if (var2_abstract.getO2() == 0) { // 0 is upper bound of second operand
                         reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, 1 / var2_abstract.getO1());
                     } else { // 0 in middle of range of second operand
-                        // being conservative by assigning lattice value T, could alternatively retain more information
-                        // by taking union of 2 disjoint intervals
+                        // being conservative by assigning lattice value top [-∞,+∞], could alternatively retain more
+                        // information by taking union of 2 disjoint intervals
                         reciprocal_abstract = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
                     }
                     Double candidate_1 = var1_abstract.getO1() * reciprocal_abstract.getO1();
@@ -220,11 +213,10 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                 NewArrayExpr new_arr_expr = (NewArrayExpr) expr;
                 IntConstant arr_len_const = (IntConstant)(new_arr_expr.getSize());
                 this.array_len_map.put(var,arr_len_const.value);
-//                System.out.println(array_len_map);
             }
         } else if (stmt instanceof IfStmt) { // apply widening operator at head of loop
             Sigma prev = this.program_map.get(stmt.getJavaSourceStartLineNumber());
-            if (prev == null) { // reaching head of loop for first time, initialize all variables as bottom
+            if (prev == null) { // reaching head of loop for first time, initialize all variables as bottom [+∞,-∞]
                 prev = new Sigma(this.locals, new Pair<>(Double.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY));
             }
             Sigma curr = inValue;
@@ -239,7 +231,6 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
         if (stmt instanceof IfStmt) { // store sigma after applying widening operator as most recent sigma_in for that line
             this.program_map.put(stmt.getJavaSourceStartLineNumber(), inValue);
         }
-        // System.out.printf("Set %d to %s with %s\n", stmt.getJavaSourceStartLineNumber(), inValue.toString(), stmt.getClass().getSimpleName());
     }
 
     /**
