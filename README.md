@@ -1,9 +1,12 @@
-# Homework 5: Context-Sensitive Interprocedural Analysis
+# Range Analysis on Integers using Soot (Java)
 
-For this homework you will be implementing an interprocedural analysis using [Soot](https://github.com/soot-oss/soot).
+This project features range analysis on integers using the Soot framework in Java. By performing static analysis on variables
+as they change throughout a program, we can collect information about their ranges (minimum and maximum integer values) at
+different program points without ever executing the program. This is informative when there are array indexing operations in
+the program, since warnings or errors about negative array indexes or array indexing that exceeds the array length can be raised.
 
 ## Requirements
-The only prerequisite installation for this homework is a JDK between version 8 to 14.
+The only prerequisite installation is a JDK between version 8 to 14.
 This repo has been tested with Java 14, but it may even work with Java 15.
 It will currently *not work* with Java 16 or higher. If you have a different default Java version,
 check out tools such as [jEnv](https://www.jenv.be), which help with switching between different
@@ -11,27 +14,9 @@ Java versions for use in specific directories.
 
 The project uses the Gradle build system, which ships with a wrapper that will
 download all of the project dependencies for you. Building/testing should be as simple as running `./gradlew build` on
-a *nix system, or `gradlew.bat build` on Windows. The project should build successfully, but you will fail two tests 
-that we have helpfully provided for you.
-
-## Submission
-You will submit your entire repository to Gradescope. Gradescope does not automatically track your repository, so you
-must resubmit every time you'd like the autograder to run again.
-- Note: The autograder works by cloning your repository and syncing your `src/main/java/hw5/` with a repository based
-on this template, except for the `InterAnalysisTransformer.java` and `IntraAnalysisTransformer.java` files. 
-You should not have to create any new files to complete this homework, but if you do, only those
-in the `hw5` directory will be included, and any other files you add or modify (e.g., creating a new package, adding a
-library to the default `build.gradle`) will not be synced. You can test your submission by cloning a fresh copy of this
-repository, replacing all of `hw5` with the contents of your `hw5`, and running `gradlew build`.
-
-## Project Structure
-The files you need to modify to complete this homework are in `src/main/java/hw5/`. You will need to modify 
-`Context.java`, `Sigma.java`, `IntraSignAnalysis.java`, and `InterSignAnalysis.java`. The `*Transformer.java` files
-are drivers for Soot that instantiate (and thus run) your analyses. We have written them for you, but you can use
-them to output debugging information if you'd like. There is an example of this usage in `IntraAnalysisTransformer.java`
-already. Note that the autograder will use the template version of these files, so your analysis should not rely on them.
+a *nix system, or `gradlew.bat build` on Windows. The project should build successfully.
 
 ## Recommendataions
-- We highly recommend an IDE such as [IntelliJ IDEA](https://www.jetbrains.com/idea/) for this project. As a student,
-you are eligible for a free license from JetBrains. If you'd like to use IDEA, you can import this homework as a Gradle
- project directly from GitHub using `File -> New -> Project from Version Control... -> Git`. 
+- We highly recommend an IDE such as [IntelliJ IDEA](https://www.jetbrains.com/idea/) for this project. 
+If you'd like to use IDEA, you can import this as a Gradle project directly from GitHub using 
+`File -> New -> Project from Version Control... -> Git`. 
