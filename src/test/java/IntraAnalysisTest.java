@@ -22,7 +22,7 @@ public class IntraAnalysisTest extends AnalysisTest {
         addTestClass("inputs.IntraTest");
         Main.main(getArgs());
 
-//        addExpected(ErrorMessage.NEGATIVE_INDEX_ERROR, 20);
+//        addExpected(ErrorMessage.EXCEED_ARRAY_LENGTH_ERROR, 37);
 //        addExpected(ErrorMessage.NEGATIVE_INDEX_ERROR, 31);
 //        addExpected(ErrorMessage.NEGATIVE_INDEX_ERROR, 42);
 //        addExpected(ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING, 54);

@@ -35,6 +35,9 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
     // Mapping from program points to most recent Sigma_in
     public Map<Integer,Sigma> program_map = new HashMap<>();
 
+    // Mapping from local (array) to its length
+    public Map<Local,Integer> array_len_map = new HashMap<>();
+
     /**
      * Constructor with no context. This is useful for testing the intraprocedural
      * analysis on its own.
@@ -70,12 +73,10 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
      * Report warnings. This will use the analysis results collected by the constructor.
      */
     public void reportWarnings() {
-        // TODO: Implement this (raise warnings)!
         for (Unit u : this.graph) {
             Pair<Double, Double> bottom = new Pair<>(Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY);
             Pair<Double, Double> top = new Pair<>(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
             Sigma sigmaBefore = this.getFlowBefore(u);
-            Local ind = null;
             Stmt stmt = (Stmt) u;
             if (stmt instanceof AssignStmt) {
                 AssignStmt assign_stmt = (AssignStmt) stmt;
@@ -84,23 +85,32 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                 if (expr instanceof ArrayRef) {
                     ArrayRef arr_expr = (ArrayRef) expr;
                     soot.Value index = arr_expr.getIndex();
+                    soot.Value base = arr_expr.getBase();
+                    int arr_len = this.array_len_map.get(base);
                     if (index instanceof IntConstant) {
                         Integer i = ((IntConstant) index).value;
                         if (i < 0) {
                             Utils.reportWarning(u, ErrorMessage.NEGATIVE_INDEX_ERROR);
+                        } else if (i >= arr_len) {
+                            Utils.reportWarning(u, ErrorMessage.EXCEED_ARRAY_LENGTH_ERROR);
                         }
                     } else if (index instanceof Local) {
-                        ind = (Local) index;
+                        Local ind = (Local) index;
                         Pair<Double, Double> range = sigmaBefore.map.get(ind);
                         Double low = range.getO1();
                         Double high = range.getO2();
-                        if (high < 0.0) { // or low > array_length
+                        if (high < 0) {
                             Utils.reportWarning(u, ErrorMessage.NEGATIVE_INDEX_ERROR);
-                        } else if (low < 0.0 || high == Double.POSITIVE_INFINITY) {
+                        } else if (low >= arr_len) {
+                            Utils.reportWarning(u, ErrorMessage.EXCEED_ARRAY_LENGTH_ERROR);
+                        } else if (low < 0 && high < arr_len) {
                             Utils.reportWarning(u, ErrorMessage.POSSIBLE_NEGATIVE_INDEX_WARNING);
-                        } // if low >= 0.0 && low <= array_length && high > array_length (warning)
-                          else { // low >= 0.0 && low <= array_length && high <= array_length
-                              ;
+                        } else if (low < 0 && high >= arr_len) {
+                            Utils.reportWarning(u, ErrorMessage.EITHER_NEGATIVE_INDEX_OR_EXCEED_ARRAY_LENGTH_WARNING);
+                        } else if (low >= 0 && high >= arr_len) {
+                            Utils.reportWarning(u, ErrorMessage.POSSIBLE_EXCEED_ARRAY_LENGTH_WARNING);
+                        } else {
+                            ;
                         }
 
                     }
@@ -129,6 +139,12 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
             if (expr instanceof DoubleConstant) {
                 Double d = ((DoubleConstant) expr).value;
                 outValue.map.put(var, new Pair<>(d, d));
+            } else if (expr instanceof CastExpr) {
+                CastExpr cast_expr = (CastExpr) expr;
+                soot.Value casted_op = cast_expr.getOp();
+                Local casted_local = (Local) casted_op;
+                Pair<Double,Double> casted_local_range = inValue.map.get(casted_local);
+                outValue.map.put(var,casted_local_range);
             } else if (expr instanceof BinopExpr) {
                 soot.Value op1 = ((BinopExpr) expr).getOp1();
                 Pair<Double, Double> var1_abstract = null;
@@ -200,6 +216,11 @@ public class IntraSignAnalysis extends ForwardFlowAnalysis<Unit, Sigma> {
                 var_right = (Local) expr;
                 Pair<Double, Double> abs = inValue.map.get(var_right);
                 outValue.map.put(var, abs);
+            } else if (expr instanceof NewArrayExpr) {
+                NewArrayExpr new_arr_expr = (NewArrayExpr) expr;
+                IntConstant arr_len_const = (IntConstant)(new_arr_expr.getSize());
+                this.array_len_map.put(var,arr_len_const.value);
+//                System.out.println(array_len_map);
             }
         } else if (stmt instanceof IfStmt) { // apply widening operator at head of loop
             Sigma prev = this.program_map.get(stmt.getJavaSourceStartLineNumber());
